@@ -1,8 +1,9 @@
+
 version: "3.8"
 
 services:
 
-  tb-server:
+  tb-server-prod:
     build:
       context: .
       dockerfile: Dockerfile
@@ -19,6 +20,9 @@ services:
       - CASSANDRA_KEYSPACE_NAME=thingsboard
       - CASSANDRA_URL=10.160.0.2:9042
       - CASSANDRA_USE_CREDENTIALS=false
+      - TB_QUEUE_TYPE=kafka
+      - TB_QUEUE_PREFIX=prod_
+      - TB_KAFKA_SERVERS=kafka:9092
       - SECURITY_OAUTH2_ENABLED=false
     depends_on:
       - kafka
@@ -29,3 +33,6 @@ services:
 networks:
   tb-kafka-net:
     external: true
+
+
+
