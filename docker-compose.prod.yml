@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+
+  tb-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: thingsboard-prod:4.1.0
+    container_name: thingsboard-prod-4.1.0
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_TS_TYPE=cassandra
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_prod
+      - SPRING_DATASOURCE_USERNAME=nethmi
+      - SPRING_DATASOURCE_PASSWORD=123456
+      - CASSANDRA_CLUSTER_NAME=Thingsboard Cluster
+      - CASSANDRA_KEYSPACE_NAME=thingsboard
+      - CASSANDRA_URL=10.160.0.2:9042
+      - CASSANDRA_USE_CREDENTIALS=false
+      - SECURITY_OAUTH2_ENABLED=false
+    depends_on:
+      - kafka
+    networks:
+      - tb-kafka-net
+    restart: "no"
+
+networks:
+  tb-kafka-net:
+    external: true
