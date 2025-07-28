@@ -1,7 +1,6 @@
 version: "3.8"
 
 services:
-
   tb-server:
     build:
       context: .
@@ -20,12 +19,15 @@ services:
       - CASSANDRA_URL=10.160.0.2:9042
       - CASSANDRA_USE_CREDENTIALS=false
       - SECURITY_OAUTH2_ENABLED=false
+      - TB_QUEUE_TYPE=kafka
+      - TB_KAFKA_SERVERS=kafka:9092
     depends_on:
       - kafka
     networks:
       - tb-kafka-net
-    restart: "no"
+    restart: no
 
 networks:
   tb-kafka-net:
     external: true
+
