@@ -1,35 +1,12 @@
 version: "3.8"
 
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper-qa
-    ports:
-      - "2182:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka-qa
-    ports:
-      - "9093:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    depends_on:
-      - zookeeper
-
-  tb-server:
+  tb-server-qa:
     build:
       context: .
       dockerfile: Dockerfile.qa
     image: thingsboard-qa:4.1.0
-    container_name: thingsboard_qa-4.1.0
+    container_name: thingsboard-qa-4.1.0
     ports:
       - "8080:8080"
     environment:
@@ -37,11 +14,18 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_qa
       - SPRING_DATASOURCE_USERNAME=nethmi
       - SPRING_DATASOURCE_PASSWORD=123456
-      - CASSANDRA_CLUSTER_NAME=Thingsboard Cluster
-      - CASSANDRA_KEYSPACE_NAME=thingsboard
       - CASSANDRA_URL=10.160.0.2:9042
+      - CASSANDRA_KEYSPACE=thingsboard
       - CASSANDRA_USE_CREDENTIALS=false
+      - TB_QUEUE_TYPE=kafka
+      - TB_KAFKA_SERVERS=kafka:9092
       - SECURITY_OAUTH2_ENABLED=false
     depends_on:
       - kafka
-    restart: "no"
+    networks:
+      - tb-kafka-net
+    restart: no
+
+networks:
+  tb-kafka-net:
+    external: true
