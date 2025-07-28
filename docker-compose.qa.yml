@@ -1,6 +1,8 @@
+
 version: "3.8"
 
 services:
+
   tb-server-qa:
     build:
       context: .
@@ -8,24 +10,29 @@ services:
     image: thingsboard-qa:4.1.0
     container_name: thingsboard-qa-4.1.0
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       - DATABASE_TS_TYPE=cassandra
       - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_qa
       - SPRING_DATASOURCE_USERNAME=nethmi
       - SPRING_DATASOURCE_PASSWORD=123456
+      - CASSANDRA_CLUSTER_NAME=Thingsboard Cluster
+      - CASSANDRA_KEYSPACE_NAME=thingsboard
       - CASSANDRA_URL=10.160.0.2:9042
-      - CASSANDRA_KEYSPACE=thingsboard
       - CASSANDRA_USE_CREDENTIALS=false
       - TB_QUEUE_TYPE=kafka
+      - TB_QUEUE_PREFIX=qa_
       - TB_KAFKA_SERVERS=kafka:9092
       - SECURITY_OAUTH2_ENABLED=false
     depends_on:
       - kafka
     networks:
       - tb-kafka-net
-    restart: no
+    restart: "no"
 
 networks:
   tb-kafka-net:
     external: true
+
+
+
