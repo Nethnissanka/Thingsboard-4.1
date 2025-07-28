@@ -10,7 +10,7 @@ services:
     image: thingsboard-prod:4.1.0
     container_name: thingsboard-prod-4.1.0
     ports:
-      - "8082:8080"
+      - "8086:8080"
     environment:
       - DATABASE_TS_TYPE=cassandra
       - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_prod
