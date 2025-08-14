@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    ports:
+      - "9400:9400"
+    command:
+      - '--kafka.server=kafka:9092'
+      - '--web.listen-address=0.0.0.0:9400'
+    depends_on:
+      - kafka
+    networks:
+      - tb-kafka-net
+    restart: unless-stopped
+
+networks:
+  tb-kafka-net:
+    external: true
