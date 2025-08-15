@@ -1,39 +1,50 @@
 version: "3.8"
-
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: kafka-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - tb-kafka-net
-    ports:
-      - "2181:2181"
-
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
-    depends_on:
-      - zookeeper
     ports:
-      - "9092:9092"
+      - "9092:9092"  # Kafka broker port
+      - "9093:9093"  # Kafka controller port (internal KRaft controller)
+     # - "9400:9400"  # JMX/Prometheus metrics port
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # Generate a unique cluster ID - you can generate one using: docker run --rm confluentinc/cp-kafka:7.5.0 kafka-storage random-uuid
+      CLUSTER_ID: "vQBeUH5FSTmAns51myq_dg"
+    
+
+
+      # JMX Configuration for Prometheus
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka
+     # KAFKA_OPTS: -javaagent:/usr/share/jmx_exporter/jmx_prometheus_javaagent.jar=9400:/usr/share/jmx_exporter/kafka.yml
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      #- /usr/share/jmx_exporter:/usr/share/jmx_exporter
     networks:
       - tb-kafka-net
+    # Add healthcheck to ensure Kafka is ready
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  kafka-data:
 
 networks:
   tb-kafka-net:
-    name: tb-kafka-net
     external: true
-
-
-
-
-
