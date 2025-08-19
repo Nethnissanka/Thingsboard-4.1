@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: thingsboard:4.1.0
-    container_name: thingsboard-4.1.0
+    image: thingsboard:4.2.0
+    container_name: thingsboard-4.2.0
     ports:
       - "8080:8080"
     environment:
@@ -16,8 +16,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=123456
       - CASSANDRA_CLUSTER_NAME=ThingsBoard Cluster
       - CASSANDRA_KEYSPACE_NAME=thingsboard
-     # - CASSANDRA_URL=10.160.0.2:9042
-      - CASSANDRA_URL=scylla-node:9042
+      - CASSANDRA_URL=10.160.0.2:9042
+     # - CASSANDRA_URL=scylla-node:9042
       - CASSANDRA_USE_CREDENTIALS=false
       - SECURITY_OAUTH2_ENABLED=false
       - TB_QUEUE_TYPE=kafka

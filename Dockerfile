@@ -18,5 +18,7 @@ RUN rpm -ivh /tmp/thingsboard.rpm && rm -f /tmp/thingsboard.rpm
 EXPOSE 8080
 
 # Start TB with default command
-#CMD ["/usr/share/thingsboard/bin/thingsboard.sh", "start-foreground"]
 CMD ["java", "-jar", "/usr/share/thingsboard/bin/thingsboard.jar"]
+
+# Run upgrade then start ThingsBoard
+#CMD ["/bin/bash", "-c", "/usr/share/thingsboard/bin/install/upgrade.sh && java -jar /usr/share/thingsboard/bin/thingsboard.jar"]
