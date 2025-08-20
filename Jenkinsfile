@@ -149,42 +149,42 @@ pipeline {
         }
 
 
-        stage('Build New Docker Image') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true" }
-            }
-            steps {
-                echo "🔧 Building image ${IMAGE_NAME}"
-                sh "docker build -t ${IMAGE_NAME} --build-arg TB_VERSION=${params.TB_VERSION} ."
-            }
-        }
+        // stage('Build New Docker Image') {
+        //     when {
+        //         expression { env.UPGRADE_REQUIRED == "true" }
+        //     }
+        //     steps {
+        //         echo "🔧 Building image ${IMAGE_NAME}"
+        //         sh "docker build -t ${IMAGE_NAME} --build-arg TB_VERSION=${params.TB_VERSION} ."
+        //     }
+        // }
 
-        stage('Stop and Remove Old Container') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_CONTAINER_NAME != "" }
-            }
+        // stage('Stop and Remove Old Container') {
+        //     when {
+        //         expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_CONTAINER_NAME != "" }
+        //     }
            
-            steps {
-                echo "🛑 Stopping container ${env.CURRENT_CONTAINER_NAME}"
-                sh """
-                    docker stop ${env.CURRENT_CONTAINER_NAME} || true
-                    docker rm ${env.CURRENT_CONTAINER_NAME} || true
-                """
-            }
-        }
+        //     steps {
+        //         echo "🛑 Stopping container ${env.CURRENT_CONTAINER_NAME}"
+        //         sh """
+        //             docker stop ${env.CURRENT_CONTAINER_NAME} || true
+        //             docker rm ${env.CURRENT_CONTAINER_NAME} || true
+        //         """
+        //     }
+        // }
 
-        stage('Start New Version with Docker Compose') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true"}
-            }
-            steps {
-                echo "🚀 Launching version ${params.TB_VERSION} using docker compose"
-                sh """
-                    TB_VERSION=${params.TB_VERSION} docker compose down || true
-                    TB_VERSION=${params.TB_VERSION} docker compose up -d
-                """
-            }
-        }
+        // stage('Start New Version with Docker Compose') {
+        //     when {
+        //         expression { env.UPGRADE_REQUIRED == "true"}
+        //     }
+        //     steps {
+        //         echo "🚀 Launching version ${params.TB_VERSION} using docker compose"
+        //         sh """
+        //             TB_VERSION=${params.TB_VERSION} docker compose down || true
+        //             TB_VERSION=${params.TB_VERSION} docker compose up -d
+        //         """
+        //     }
+        // }
 
         stage('Verify Deployment') {
             when {
