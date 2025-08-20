@@ -84,6 +84,10 @@ pipeline {
                 script {
                     echo '🔍 Comparing current version with target release...'
                     echo "📦 Current: ${env.CURRENT_VERSION} → Target: ${env.TARGET_VERSION}"
+                    echo "📦 Latest: ${env.LATEST_VERSION}"
+                    echo "Target: ${env.TARGET_VERSION}"
+                    echo "Current: ${env.CURRENT_VERSION}"
+                    echo "TB: ${env.TB_VERSION}"
 
                     if (env.CURRENT_VERSION == env.TARGET_VERSION) {
                         echo "✅ ThingsBoard is already up to date (v${env.CURRENT_VERSION})"
@@ -147,7 +151,7 @@ pipeline {
         // }
 
         stage('Verify Deployment') {
-            when { expression { env.UPGRADE_REQUIRED == "true" } }
+            // when { expression { env.UPGRADE_REQUIRED == "true" } }
             steps {
                 script {
                     echo "🔍 Verifying ThingsBoard is running..."
