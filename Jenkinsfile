@@ -241,7 +241,7 @@ pipeline {
             //     }
 
             //     error "❌ Upgrade failed and rollback was triggered."
-            // }
+             }
         }
         
         unstable {
