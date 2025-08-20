@@ -87,15 +87,16 @@ pipeline {
         }
         
         stage('Download RPM') {
-            // when {
-            //     expression { env.UPGRADE_REQUIRED == "true" }
-            // }
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
             steps {
                 script {
                     echo "📥 Downloading ThingsBoard RPM package..."
                     def rpmUrl = "${PACKAGE_REPO}/v${env.TB_VERSION}/thingsboard-${env.TB_VERSION}.rpm"
                     echo "📥 Downloading RPM from: ${rpmUrl}"
                     
+                    // Fixed the shell script syntax - using triple double quotes for proper interpolation
                     sh """
                         # Clean up any existing RPM files
                         rm -f thingsboard-*.rpm
@@ -115,16 +116,16 @@ pipeline {
                         # Copy RPM to target location
                         cp thingsboard-${env.TB_VERSION}.rpm application/target/thingsboard.rpm
                         
-                        echo "✅ RPM downloaded successfully: $(ls -lh thingsboard-${env.TB_VERSION}.rpm)"
+                        echo "✅ RPM downloaded successfully: \$(ls -lh thingsboard-${env.TB_VERSION}.rpm)"
                     """
                 }
             }
         }
 
         stage('Backup Current Image') {
-            // when {
-            //     expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
-            // }
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
+            }
             steps {
                 echo "📦 Tagging current image for rollback: ${env.ROLLBACK_IMAGE}"
                 sh "docker tag ${env.CURRENT_IMAGE_NAME} ${env.ROLLBACK_IMAGE}"
@@ -282,36 +283,36 @@ pipeline {
             script {
                 echo "❌ Upgrade failed. Starting rollback..."
                 
-                // if (env.ROLLBACK_IMAGE && env.ROLLBACK_IMAGE != "") {
-                //     echo "🔁 Restoring from backup image: ${env.ROLLBACK_IMAGE}"
+                if (env.ROLLBACK_IMAGE && env.ROLLBACK_IMAGE != "") {
+                    echo "🔁 Restoring from backup image: ${env.ROLLBACK_IMAGE}"
                     
-                //     // Stop new container if it exists
-                //     sh """
-                //         docker stop ${env.NEW_CONTAINER_NAME} || true
-                //         docker rm ${env.NEW_CONTAINER_NAME} || true
-                //     """
+                    // Stop new container if it exists
+                    sh """
+                        docker stop ${env.NEW_CONTAINER_NAME} || true
+                        docker rm ${env.NEW_CONTAINER_NAME} || true
+                    """
                     
-                //     // Revert docker-compose to previous version
-                //     if (env.CURRENT_VERSION && env.CURRENT_VERSION != "none") {
-                //         def composeContent = readFile(file: 'docker-compose.yml')
-                //         def revertedContent = composeContent.replaceAll(
-                //             /image: thingsboard:.*/, 
-                //             "image: thingsboard:${env.CURRENT_VERSION}"
-                //         )
-                //         writeFile(file: 'docker-compose.yml', text: revertedContent)
-                //     }
+                    // Revert docker-compose to previous version
+                    if (env.CURRENT_VERSION && env.CURRENT_VERSION != "none") {
+                        def composeContent = readFile(file: 'docker-compose.yml')
+                        def revertedContent = composeContent.replaceAll(
+                            /image: thingsboard:.*/, 
+                            "image: thingsboard:${env.CURRENT_VERSION}"
+                        )
+                        writeFile(file: 'docker-compose.yml', text: revertedContent)
+                    }
                     
-                //     // Start previous version
-                //     sh """
-                //         docker compose -f ${KAFKA_COMPOSE_FILE} -f ${TB_COMPOSE_FILE} up -d
-                //     """
+                    // Start previous version
+                    sh """
+                        docker compose -f ${KAFKA_COMPOSE_FILE} -f ${TB_COMPOSE_FILE} up -d
+                    """
                     
-                //     echo "✅ Rollback complete. ThingsBoard is back to v${env.CURRENT_VERSION}"
-                // } else {
-                //     echo "⚠️ No backup image available for rollback."
-                // }
+                    echo "✅ Rollback complete. ThingsBoard is back to v${env.CURRENT_VERSION}"
+                } else {
+                    echo "⚠️ No backup image available for rollback."
+                }
                 
-                // error "❌ Upgrade failed. Rollback was attempted."
+                error "❌ Upgrade failed. Rollback was attempted."
             }
         }
         
