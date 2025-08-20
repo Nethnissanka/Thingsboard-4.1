@@ -79,15 +79,34 @@ pipeline {
             }
         }
 
+        // stage('Compare Versions') {
+        //     steps {
+        //         script {
+        //             echo '🔍 Comparing current version with target release...'
+        //             echo "📦 Current: ${env.CURRENT_VERSION} → Target: ${env.TARGET_VERSION}"
+        //             echo "📦 Latest: ${env.LATEST_VERSION}"
+        //             echo "Target: ${env.TARGET_VERSION}"
+        //             echo "Current: ${env.CURRENT_VERSION}"
+        //             echo "TB: ${env.TB_VERSION}"
+
+        //             if (env.CURRENT_VERSION == env.TARGET_VERSION) {
+        //                 echo "✅ ThingsBoard is already up to date (v${env.CURRENT_VERSION})"
+        //                 env.UPGRADE_REQUIRED = "false"
+        //             } else {
+        //                 echo "⬆️ Upgrade required: ${env.CURRENT_VERSION} ➜ ${env.TARGET_VERSION}"
+        //                 env.UPGRADE_REQUIRED = "true"
+        //             }
+        //         }
+        //     }
+        // }
+        
+
         stage('Compare Versions') {
             steps {
                 script {
                     echo '🔍 Comparing current version with target release...'
                     echo "📦 Current: ${env.CURRENT_VERSION} → Target: ${env.TARGET_VERSION}"
-                    echo "📦 Latest: ${env.LATEST_VERSION}"
-                    echo "Target: ${env.TARGET_VERSION}"
-                    echo "Current: ${env.CURRENT_VERSION}"
-                    echo "TB: ${env.TB_VERSION}"
+                    echo "📦 Latest on GitHub: ${env.LATEST_VERSION}"
 
                     if (env.CURRENT_VERSION == env.TARGET_VERSION) {
                         echo "✅ ThingsBoard is already up to date (v${env.CURRENT_VERSION})"
@@ -99,6 +118,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Skip Upgrade') {
             when { expression { env.UPGRADE_REQUIRED == "false" } }
