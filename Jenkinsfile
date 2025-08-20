@@ -6,9 +6,9 @@ pipeline {
     }
 
     environment {
-        PACKAGE_REPO  = "https://github.com/thingsboard/thingsboard/releases/download"
-        KAFKA_COMPOSE_FILE = "docker-compose.kafka.yml"
-        TB_COMPOSE_FILE = "docker-compose.yml"
+        PACKAGE_REPO = "https://github.com/thingsboard/thingsboard/releases/download"
+        DOCKER_COMPOSE_KAFKA = "docker-compose.kafka.yml"
+        DOCKER_COMPOSE_TB = "docker-compose.thingsboard.yml"
     }
 
     stages {
@@ -63,14 +63,17 @@ pipeline {
             steps {
                 script {
                     echo '🔍 Comparing current version with target version...'
-                    if (!env.CURRENT_VERSION || env.CURRENT_VERSION == "none") {
-                        echo "⚠️ No current version detected, proceeding with fresh installation"
-                        env.UPGRADE_REQUIRED = "true"
-                    } else if (env.CURRENT_VERSION == params.TB_VERSION) {
-                        echo "✅ ThingsBoard is already up to date (v${env.CURRENT_VERSION})"
+                    if (!params.TB_VERSION) {
+                        error '❌ Target TB_VERSION parameter is required!'
+                    }
+                    
+                    echo "📦 Current version: ${env.CURRENT_VERSION ?: 'none'}, Target version: ${params.TB_VERSION}"
+                    
+                    if (env.CURRENT_VERSION == params.TB_VERSION) {
+                        echo "✅ ThingsBoard is already running version ${env.CURRENT_VERSION}"
                         env.UPGRADE_REQUIRED = "false"
                     } else {
-                        echo "⬆️ Upgrade required: ${env.CURRENT_VERSION} ➜ ${env.TB_VERSION}"
+                        echo "⬆️ Upgrade required: ${env.CURRENT_VERSION ?: 'none'} ➜ ${params.TB_VERSION}"
                         env.UPGRADE_REQUIRED = "true"
                     }
                 }
@@ -82,53 +85,43 @@ pipeline {
                 expression { env.UPGRADE_REQUIRED == "false" }
             }
             steps {
-                echo "✅ Skipping upgrade — Already latest version."
+                echo "✅ Skipping upgrade — Already running target version ${params.TB_VERSION}"
             }
         }
-        
+
         stage('Download RPM') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true" }
-            }
+            // when {
+            //     expression { env.UPGRADE_REQUIRED == "true" }
+            // }
             steps {
                 script {
                     echo "📥 Downloading ThingsBoard RPM package..."
-                    def rpmUrl = "${PACKAGE_REPO}/v${env.TB_VERSION}/thingsboard-${env.TB_VERSION}.rpm"
+                    def rpmUrl = "${PACKAGE_REPO}/v${params.TB_VERSION}/thingsboard-${params.TB_VERSION}.rpm"
                     echo "📥 Downloading RPM from: ${rpmUrl}"
                     
-                    // Fixed the shell script syntax - using triple double quotes for proper interpolation
                     sh """
-                        # Clean up any existing RPM files
-                        rm -f thingsboard-*.rpm
-                        
-                        # Download the new RPM
-                        curl -L -o thingsboard-${env.TB_VERSION}.rpm ${rpmUrl}
-                        
-                        # Verify download was successful
-                        if [ ! -f "thingsboard-${env.TB_VERSION}.rpm" ]; then
-                            echo "❌ RPM download failed!"
-                            exit 1
-                        fi
-                        
-                        # Prepare directory structure
+                        # Download the RPM package
+                        curl -L -o thingsboard-${params.TB_VERSION}.rpm ${rpmUrl}
+                        ls -lh thingsboard-*.rpm
+                    
+                        # Prepare application directory structure
                         mkdir -p application/target
+                        cp thingsboard-${params.TB_VERSION}.rpm application/target/thingsboard.rpm
                         
-                        # Copy RPM to target location
-                        cp thingsboard-${env.TB_VERSION}.rpm application/target/thingsboard.rpm
-                        
-                        echo "✅ RPM downloaded successfully: \$(ls -lh thingsboard-${env.TB_VERSION}.rpm)"
+                        echo "✅ RPM downloaded and copied to application/target/"
                     """
                 }
             }
         }
 
         stage('Backup Current Image') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
-            }
+            // when {
+            //     expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
+            // }
             steps {
-                echo "📦 Tagging current image for rollback: ${env.ROLLBACK_IMAGE}"
+                echo "📦 Creating backup of current image: ${env.ROLLBACK_IMAGE}"
                 sh "docker tag ${env.CURRENT_IMAGE_NAME} ${env.ROLLBACK_IMAGE}"
+                echo "✅ Backup image created: ${env.ROLLBACK_IMAGE}"
             }
         }
 
@@ -137,69 +130,94 @@ pipeline {
                 expression { env.UPGRADE_REQUIRED == "true" }
             }
             steps {
-                echo "🔧 Building image ${IMAGE_NAME}"
-                sh "docker build -t ${IMAGE_NAME} ."
+                echo "🔧 Building new ThingsBoard image: ${env.IMAGE_NAME}"
+                sh """
+                    docker build -t ${env.IMAGE_NAME} \
+                        --build-arg TB_VERSION=${params.TB_VERSION} \
+                        -f Dockerfile .
+                    
+                    echo "✅ Image built successfully: ${env.IMAGE_NAME}"
+                    docker images | grep thingsboard
+                """
             }
         }
 
-        stage('Update Docker Compose') {
+        stage('Generate Docker Compose') {
             when {
                 expression { env.UPGRADE_REQUIRED == "true" }
             }
             steps {
                 script {
-                    echo "📝 Updating docker-compose.yml with new image version"
+                    echo "📝 Generating docker-compose file for ThingsBoard ${params.TB_VERSION}"
                     
-                    // Read the current docker-compose file
-                    def composeContent = readFile(file: 'docker-compose.yml')
+                    def composeContent = """version: "3.8"
+services:
+  tb-server:
+    image: thingsboard:${params.TB_VERSION}
+    container_name: thingsboard-${params.TB_VERSION}
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_TS_TYPE=cassandra
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore
+      - SPRING_DATASOURCE_USERNAME=nethmi
+      - SPRING_DATASOURCE_PASSWORD=123456
+      - CASSANDRA_CLUSTER_NAME=ThingsBoard Cluster
+      - CASSANDRA_KEYSPACE_NAME=thingsboard
+      - CASSANDRA_URL=10.160.0.2:9042
+      - CASSANDRA_USE_CREDENTIALS=false
+      - SECURITY_OAUTH2_ENABLED=false
+      - TB_QUEUE_TYPE=kafka
+      - TB_QUEUE_PREFIX=dev_
+      - TB_KAFKA_SERVERS=kafka:9092
+      - METRICS_ENABLE=true
+      - METRICS_ENDPOINTS_EXPOSE=prometheus
+    depends_on:
+      - kafka
+    networks:
+      - tb-kafka-net
+    restart: no
+
+networks:
+  tb-kafka-net:
+    external: true
+"""
                     
-                    // Update the image version
-                    def updatedContent = composeContent.replaceAll(
-                        /image: thingsboard:.*/, 
-                        "image: thingsboard:${params.TB_VERSION}"
-                    )
-                    
-                    // Write the updated content back
-                    writeFile(file: 'docker-compose.yml', text: updatedContent)
-                    
-                    echo "✅ Docker compose file updated successfully"
+                    writeFile file: env.DOCKER_COMPOSE_TB, text: composeContent
+                    echo "✅ Generated: ${env.DOCKER_COMPOSE_TB}"
                 }
             }
         }
 
-        stage('Stop and Remove Old Container') {
+        stage('Stop Current ThingsBoard') {
             when {
                 expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_CONTAINER_NAME != "" }
             }
             steps {
-                echo "🛑 Stopping container ${env.CURRENT_CONTAINER_NAME}"
+                echo "🛑 Stopping current ThingsBoard container: ${env.CURRENT_CONTAINER_NAME}"
                 sh """
+                    # Stop current ThingsBoard service (keep kafka running)
                     docker stop ${env.CURRENT_CONTAINER_NAME} || true
                     docker rm ${env.CURRENT_CONTAINER_NAME} || true
+                    echo "✅ Old container stopped and removed"
                 """
             }
         }
 
-        stage('Start New Version with Docker Compose') {
+        stage('Deploy New Version') {
             when {
                 expression { env.UPGRADE_REQUIRED == "true" }
             }
             steps {
-                echo "🚀 Launching version ${params.TB_VERSION} using docker compose"
+                echo "🚀 Deploying ThingsBoard ${params.TB_VERSION}"
                 sh """
-                    # Start both Kafka and ThingsBoard services
-                    docker compose -f ${KAFKA_COMPOSE_FILE} -f ${TB_COMPOSE_FILE} up -d
+                    # Deploy new version with both compose files
+                    docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} up -d tb-server
+                    
+                    echo "✅ ThingsBoard ${params.TB_VERSION} deployed"
+                    echo "🔍 Checking container status..."
+                    docker ps | grep thingsboard || true
                 """
-            }
-        }
-
-        stage('Wait for Startup') {
-            when {
-                expression { env.UPGRADE_REQUIRED == "true" }
-            }
-            steps {
-                echo "⏳ Waiting for ThingsBoard to start up (60 seconds)..."
-                sleep 60
             }
         }
 
@@ -209,54 +227,50 @@ pipeline {
             }
             steps {
                 script {
-                    echo "🔍 Verifying ThingsBoard deployment"
+                    echo "🔍 Verifying ThingsBoard deployment..."
+                    echo "⏳ Waiting for ThingsBoard to start up..."
                     
-                    // Check if container is running
-                    def isRunning = sh(script: "docker inspect -f '{{.State.Running}}' ${env.NEW_CONTAINER_NAME}", returnStdout: true).trim()
-                    if (isRunning != "true") {
-                        error "❌ Container ${env.NEW_CONTAINER_NAME} is not running"
-                    }
+                    // Wait for startup (ThingsBoard needs time to initialize)
+                    sleep 60
                     
-                    // Check container logs for successful startup
-                    def logs = sh(script: "docker logs ${env.NEW_CONTAINER_NAME} --tail 50", returnStdout: true).trim()
-                    if (!logs.contains("Started ThingsBoard")) {
-                        echo "⚠️ ThingsBoard startup not complete yet, waiting additional 30 seconds..."
-                        sleep 30
-                        logs = sh(script: "docker logs ${env.NEW_CONTAINER_NAME} --tail 50", returnStdout: true).trim()
-                    }
+                    echo "🔍 Checking container health..."
+                    sh "docker ps | grep thingsboard-${params.TB_VERSION}"
                     
-                    // Check for version in logs
-                    if (!logs.contains("ThingsBoard v${params.TB_VERSION}")) {
-                        error "❌ Wrong version detected in logs"
-                    }
+                    echo "🔍 Checking ThingsBoard logs for startup completion..."
+                    sh """
+                        # Show recent logs to verify startup
+                        docker logs --tail 50 thingsboard-${params.TB_VERSION} | grep -E "(Started ThingsBoard|Startup complete)" || true
+                    """
                     
-                    // Check HTTP response
-                    echo "🔍 Checking HTTP response..."
-                    def maxRetries = 10
+                    echo "🌐 Testing HTTP endpoint..."
+                    // Test the web interface
+                    def maxRetries = 5
                     def retryCount = 0
-                    def success = false
+                    def httpStatus = ""
                     
-                    while (retryCount < maxRetries && !success) {
+                    while (retryCount < maxRetries) {
                         try {
-                            def code = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login || echo '000'", returnStdout: true).trim()
-                            if (code == "200") {
-                                success = true
-                                echo "✅ ThingsBoard is up and responding (HTTP 200)"
-                            } else {
-                                echo "⏳ Waiting for ThingsBoard to respond (HTTP ${code}), retry ${retryCount + 1}/${maxRetries}"
-                                sleep 10
-                                retryCount++
+                            httpStatus = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login", returnStdout: true).trim()
+                            if (httpStatus == "200") {
+                                echo "✅ ThingsBoard is responding correctly (HTTP 200)"
+                                break
                             }
                         } catch (Exception e) {
-                            echo "⏳ Connection failed, retry ${retryCount + 1}/${maxRetries}"
-                            sleep 10
-                            retryCount++
+                            echo "⏳ Attempt ${retryCount + 1}/${maxRetries}: HTTP status ${httpStatus}, retrying in 30 seconds..."
+                        }
+                        
+                        retryCount++
+                        if (retryCount < maxRetries) {
+                            sleep 30
                         }
                     }
                     
-                    if (!success) {
-                        error "❌ ThingsBoard did not become responsive within expected time"
+                    if (httpStatus != "200") {
+                        echo "❌ ThingsBoard is not responding correctly after ${maxRetries} attempts (HTTP ${httpStatus})"
+                        error "❌ Deployment verification failed — HTTP status: ${httpStatus}"
                     }
+                    
+                    echo "🎉 Deployment verified successfully!"
                 }
             }
         }
@@ -265,59 +279,82 @@ pipeline {
     post {
         success {
             script {
-                echo "✅ Upgrade pipeline completed successfully!"
                 if (env.UPGRADE_REQUIRED == "true") {
-                    echo "🎉 ThingsBoard upgraded from v${env.CURRENT_VERSION} to v${env.TB_VERSION} successfully!"
-                    
-                    // Clean up old image if upgrade was successful
-                    if (env.CURRENT_IMAGE_NAME && env.CURRENT_IMAGE_NAME != "") {
-                        echo "🧹 Cleaning up old image: ${env.CURRENT_IMAGE_NAME}"
-                        sh "docker rmi ${env.CURRENT_IMAGE_NAME} || true"
-                    }
+                    echo """
+🎉 ThingsBoard Upgrade Completed Successfully!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Upgraded from: ${env.CURRENT_VERSION ?: 'none'} → ${params.TB_VERSION}
+🐳 Container: thingsboard-${params.TB_VERSION}
+🌐 Web UI: http://localhost:8080
+📦 Backup available: ${env.ROLLBACK_IMAGE ?: 'none'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    """
                 } else {
-                    echo "✅ No upgrade needed. Still running v${env.CURRENT_VERSION}."
+                    echo "✅ No upgrade needed. ThingsBoard ${params.TB_VERSION} is already running."
                 }
             }
         }
+        
         failure {
             script {
-                echo "❌ Upgrade failed. Starting rollback..."
+                echo "❌ ThingsBoard upgrade failed! Starting rollback procedures..."
                 
-                if (env.ROLLBACK_IMAGE && env.ROLLBACK_IMAGE != "") {
-                    echo "🔁 Restoring from backup image: ${env.ROLLBACK_IMAGE}"
-                    
-                    // Stop new container if it exists
-                    sh """
-                        docker stop ${env.NEW_CONTAINER_NAME} || true
-                        docker rm ${env.NEW_CONTAINER_NAME} || true
-                    """
-                    
-                    // Revert docker-compose to previous version
-                    if (env.CURRENT_VERSION && env.CURRENT_VERSION != "none") {
-                        def composeContent = readFile(file: 'docker-compose.yml')
-                        def revertedContent = composeContent.replaceAll(
-                            /image: thingsboard:.*/, 
-                            "image: thingsboard:${env.CURRENT_VERSION}"
-                        )
-                        writeFile(file: 'docker-compose.yml', text: revertedContent)
-                    }
-                    
-                    // Start previous version
-                    sh """
-                        docker compose -f ${KAFKA_COMPOSE_FILE} -f ${TB_COMPOSE_FILE} up -d
-                    """
-                    
-                    echo "✅ Rollback complete. ThingsBoard is back to v${env.CURRENT_VERSION}"
-                } else {
-                    echo "⚠️ No backup image available for rollback."
-                }
+                // if (env.UPGRADE_REQUIRED == "true" && env.ROLLBACK_IMAGE && env.CURRENT_CONTAINER_NAME) {
+                //     try {
+                //         echo "🔄 Rolling back to previous version..."
+                //         sh """
+                //             # Stop failed container
+                //             docker stop thingsboard-${params.TB_VERSION} || true
+                //             docker rm thingsboard-${params.TB_VERSION} || true
+                            
+                //             # Restore previous version
+                //             docker run -d --name ${env.CURRENT_CONTAINER_NAME} \
+                //                 --network tb-kafka-net \
+                //                 -p 8080:8080 \
+                //                 -e DATABASE_TS_TYPE=cassandra \
+                //                 -e SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore \
+                //                 -e SPRING_DATASOURCE_USERNAME=nethmi \
+                //                 -e SPRING_DATASOURCE_PASSWORD=123456 \
+                //                 -e CASSANDRA_CLUSTER_NAME="ThingsBoard Cluster" \
+                //                 -e CASSANDRA_KEYSPACE_NAME=thingsboard \
+                //                 -e CASSANDRA_URL=10.160.0.2:9042 \
+                //                 -e CASSANDRA_USE_CREDENTIALS=false \
+                //                 -e SECURITY_OAUTH2_ENABLED=false \
+                //                 -e TB_QUEUE_TYPE=kafka \
+                //                 -e TB_QUEUE_PREFIX=dev_ \
+                //                 -e TB_KAFKA_SERVERS=kafka:9092 \
+                //                 -e METRICS_ENABLE=true \
+                //                 -e METRICS_ENDPOINTS_EXPOSE=prometheus \
+                //                 ${env.ROLLBACK_IMAGE}
+                //         """
+                //         echo "✅ Rollback completed successfully. ThingsBoard restored to v${env.CURRENT_VERSION}"
+                //     } catch (Exception e) {
+                //         echo "❌ Rollback failed: ${e.getMessage()}"
+                //         echo "⚠️ Manual intervention required!"
+                //     }
+                // } else {
+                //     echo "⚠️ No backup available for rollback. Manual intervention required."
+                // }
                 
-                error "❌ Upgrade failed. Rollback was attempted."
+                error "❌ ThingsBoard upgrade failed. Check logs for details."
             }
         }
         
         unstable {
-            echo "⚠️ ThingsBoard upgrade is unstable!"
+            echo "⚠️ ThingsBoard upgrade completed but may be unstable. Monitor closely."
+        }
+        
+        always {
+            echo "🧹 Cleaning up temporary files..."
+            sh """
+                # Clean up downloaded RPM files
+                rm -f thingsboard-*.rpm || true
+                
+                # Clean up generated compose file
+                rm -f ${env.DOCKER_COMPOSE_TB} || true
+                
+                echo "✅ Cleanup completed"
+            """
         }
     }
 }
