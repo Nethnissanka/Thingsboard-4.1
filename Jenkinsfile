@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'TB_VERSION', defaultValue: '4.2.0', description: 'Enter the ThingsBoard version to upgrade (e.g., 4.2.0)')
+        string(name: 'TB_VERSION', defaultValue: '4.2', description: 'Enter the ThingsBoard version to upgrade (e.g., 4.2)')
     }
 
     environment {
@@ -90,9 +90,9 @@ pipeline {
         }
 
         stage('Download RPM') {
-            // when {
-            //     expression { env.UPGRADE_REQUIRED == "true" }
-            // }
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
             steps {
                 script {
                     echo "📥 Downloading ThingsBoard RPM package..."
@@ -115,9 +115,9 @@ pipeline {
         }
 
         stage('Backup Current Image') {
-            // when {
-            //     expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
-            // }
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" && env.CURRENT_IMAGE_NAME != "" }
+            }
             steps {
                 echo "📦 Creating backup of current image: ${env.ROLLBACK_IMAGE}"
                 sh "docker tag ${env.CURRENT_IMAGE_NAME} ${env.ROLLBACK_IMAGE}"
@@ -299,42 +299,42 @@ networks:
             script {
                 echo "❌ ThingsBoard upgrade failed! Starting rollback procedures..."
                 
-                // if (env.UPGRADE_REQUIRED == "true" && env.ROLLBACK_IMAGE && env.CURRENT_CONTAINER_NAME) {
-                //     try {
-                //         echo "🔄 Rolling back to previous version..."
-                //         sh """
-                //             # Stop failed container
-                //             docker stop thingsboard-${params.TB_VERSION} || true
-                //             docker rm thingsboard-${params.TB_VERSION} || true
+                if (env.UPGRADE_REQUIRED == "true" && env.ROLLBACK_IMAGE && env.CURRENT_CONTAINER_NAME) {
+                    try {
+                        echo "🔄 Rolling back to previous version..."
+                        sh """
+                            # Stop failed container
+                            docker stop thingsboard-${params.TB_VERSION} || true
+                            docker rm thingsboard-${params.TB_VERSION} || true
                             
-                //             # Restore previous version
-                //             docker run -d --name ${env.CURRENT_CONTAINER_NAME} \
-                //                 --network tb-kafka-net \
-                //                 -p 8080:8080 \
-                //                 -e DATABASE_TS_TYPE=cassandra \
-                //                 -e SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore \
-                //                 -e SPRING_DATASOURCE_USERNAME=nethmi \
-                //                 -e SPRING_DATASOURCE_PASSWORD=123456 \
-                //                 -e CASSANDRA_CLUSTER_NAME="ThingsBoard Cluster" \
-                //                 -e CASSANDRA_KEYSPACE_NAME=thingsboard \
-                //                 -e CASSANDRA_URL=10.160.0.2:9042 \
-                //                 -e CASSANDRA_USE_CREDENTIALS=false \
-                //                 -e SECURITY_OAUTH2_ENABLED=false \
-                //                 -e TB_QUEUE_TYPE=kafka \
-                //                 -e TB_QUEUE_PREFIX=dev_ \
-                //                 -e TB_KAFKA_SERVERS=kafka:9092 \
-                //                 -e METRICS_ENABLE=true \
-                //                 -e METRICS_ENDPOINTS_EXPOSE=prometheus \
-                //                 ${env.ROLLBACK_IMAGE}
-                //         """
-                //         echo "✅ Rollback completed successfully. ThingsBoard restored to v${env.CURRENT_VERSION}"
-                //     } catch (Exception e) {
-                //         echo "❌ Rollback failed: ${e.getMessage()}"
-                //         echo "⚠️ Manual intervention required!"
-                //     }
-                // } else {
-                //     echo "⚠️ No backup available for rollback. Manual intervention required."
-                // }
+                            # Restore previous version
+                            docker run -d --name ${env.CURRENT_CONTAINER_NAME} \
+                                --network tb-kafka-net \
+                                -p 8080:8080 \
+                                -e DATABASE_TS_TYPE=cassandra \
+                                -e SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore \
+                                -e SPRING_DATASOURCE_USERNAME=nethmi \
+                                -e SPRING_DATASOURCE_PASSWORD=123456 \
+                                -e CASSANDRA_CLUSTER_NAME="ThingsBoard Cluster" \
+                                -e CASSANDRA_KEYSPACE_NAME=thingsboard \
+                                -e CASSANDRA_URL=10.160.0.2:9042 \
+                                -e CASSANDRA_USE_CREDENTIALS=false \
+                                -e SECURITY_OAUTH2_ENABLED=false \
+                                -e TB_QUEUE_TYPE=kafka \
+                                -e TB_QUEUE_PREFIX=dev_ \
+                                -e TB_KAFKA_SERVERS=kafka:9092 \
+                                -e METRICS_ENABLE=true \
+                                -e METRICS_ENDPOINTS_EXPOSE=prometheus \
+                                ${env.ROLLBACK_IMAGE}
+                        """
+                        echo "✅ Rollback completed successfully. ThingsBoard restored to v${env.CURRENT_VERSION}"
+                    } catch (Exception e) {
+                        echo "❌ Rollback failed: ${e.getMessage()}"
+                        echo "⚠️ Manual intervention required!"
+                    }
+                } else {
+                    echo "⚠️ No backup available for rollback. Manual intervention required."
+                }
                 
                 error "❌ ThingsBoard upgrade failed. Check logs for details."
             }
@@ -348,10 +348,10 @@ networks:
             echo "🧹 Cleaning up temporary files..."
             sh """
                 # Clean up downloaded RPM files
-                rm -f thingsboard-*.rpm || true
+                #rm -f thingsboard-*.rpm || true
                 
                 # Clean up generated compose file
-                rm -f ${env.DOCKER_COMPOSE_TB} || true
+                #rm -f ${env.DOCKER_COMPOSE_TB} || true
                 
                 echo "✅ Cleanup completed"
             """
