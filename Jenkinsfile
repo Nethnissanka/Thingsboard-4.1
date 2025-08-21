@@ -200,6 +200,11 @@ networks:
                     docker stop ${env.CURRENT_CONTAINER_NAME} || true
                     docker rm ${env.CURRENT_CONTAINER_NAME} || true
                     echo "✅ Old container stopped and removed"
+                    echo "Stop running kafka container"
+                    docker stop kafka || true
+                    docker rm kafka || true
+                    echo "🔍 Verifying no conflicting containers..."
+                    docker ps -a | grep -E "(kafka|thingsboard)" || echo "No conflicting containers found"
                 """
             }
         }
@@ -209,14 +214,19 @@ networks:
                 expression { env.UPGRADE_REQUIRED == "true" }
             }
             steps {
-                echo "🚀 Deploying ThingsBoard ${params.TB_VERSION}"
+                echo "🚀 Deploying complete stack with ThingsBoard ${params.TB_VERSION}"
                 sh """
                     # Deploy new version with both compose files
                     docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} up -d tb-server
                     
-                    echo "✅ ThingsBoard ${params.TB_VERSION} deployed"
+                    echo "✅ Complete stack deployed with ThingsBoard ${params.TB_VERSION}"
                     echo "🔍 Checking container status..."
-                    docker ps | grep thingsboard || true
+                    # docker ps | grep thingsboard || true
+                    docker ps | grep -E "(kafka|thingsboard)"
+
+                    echo "🔍 Waiting for services to be ready..."
+                    sleep 10
+
                 """
             }
         }
@@ -302,31 +312,84 @@ networks:
                 if (env.UPGRADE_REQUIRED == "true" && env.ROLLBACK_IMAGE && env.CURRENT_CONTAINER_NAME) {
                     try {
                         echo "🔄 Rolling back to previous version..."
-                        sh """
-                            # Stop failed container
-                            docker stop thingsboard-${params.TB_VERSION} || true
-                            docker rm thingsboard-${params.TB_VERSION} || true
+                        // sh """
+                        //     # Stop failed container
+                        //     docker stop thingsboard-${params.TB_VERSION} || true
+                        //     docker rm thingsboard-${params.TB_VERSION} || true
                             
-                            # Restore previous version
-                            docker run -d --name ${env.CURRENT_CONTAINER_NAME} \
-                                --network tb-kafka-net \
-                                -p 8080:8080 \
-                                -e DATABASE_TS_TYPE=cassandra \
-                                -e SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore \
-                                -e SPRING_DATASOURCE_USERNAME=nethmi \
-                                -e SPRING_DATASOURCE_PASSWORD=123456 \
-                                -e CASSANDRA_CLUSTER_NAME="ThingsBoard Cluster" \
-                                -e CASSANDRA_KEYSPACE_NAME=thingsboard \
-                                -e CASSANDRA_URL=10.160.0.2:9042 \
-                                -e CASSANDRA_USE_CREDENTIALS=false \
-                                -e SECURITY_OAUTH2_ENABLED=false \
-                                -e TB_QUEUE_TYPE=kafka \
-                                -e TB_QUEUE_PREFIX=dev_ \
-                                -e TB_KAFKA_SERVERS=kafka:9092 \
-                                -e METRICS_ENABLE=true \
-                                -e METRICS_ENDPOINTS_EXPOSE=prometheus \
-                                ${env.ROLLBACK_IMAGE}
+                        //     # Restore previous version
+                        //     docker run -d --name ${env.CURRENT_CONTAINER_NAME} \
+                        //         --network tb-kafka-net \
+                        //         -p 8080:8080 \
+                        //         -e DATABASE_TS_TYPE=cassandra \
+                        //         -e SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore \
+                        //         -e SPRING_DATASOURCE_USERNAME=nethmi \
+                        //         -e SPRING_DATASOURCE_PASSWORD=123456 \
+                        //         -e CASSANDRA_CLUSTER_NAME="ThingsBoard Cluster" \
+                        //         -e CASSANDRA_KEYSPACE_NAME=thingsboard \
+                        //         -e CASSANDRA_URL=10.160.0.2:9042 \
+                        //         -e CASSANDRA_USE_CREDENTIALS=false \
+                        //         -e SECURITY_OAUTH2_ENABLED=false \
+                        //         -e TB_QUEUE_TYPE=kafka \
+                        //         -e TB_QUEUE_PREFIX=dev_ \
+                        //         -e TB_KAFKA_SERVERS=kafka:9092 \
+                        //         -e METRICS_ENABLE=true \
+                        //         -e METRICS_ENDPOINTS_EXPOSE=prometheus \
+                        //         ${env.ROLLBACK_IMAGE}
+                        // """
+
+                        sh """
+                            # Stop failed deployment
+                            docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} down || true
+                            
+                            # Clean up any remaining containers
+                            docker stop thingsboard-${params.TB_VERSION} kafka || true
+                            docker rm thingsboard-${params.TB_VERSION} kafka || true
+                            
+                            # Restore previous version with Docker Compose approach
+                            # First, create a rollback compose file
+                            cat > docker-compose.rollback.yml << 'EOF'
+version: "3.8"
+services:
+  tb-server:
+    image: ${env.ROLLBACK_IMAGE}
+    container_name: ${env.CURRENT_CONTAINER_NAME}
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_TS_TYPE=cassandra
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore
+      - SPRING_DATASOURCE_USERNAME=nethmi
+      - SPRING_DATASOURCE_PASSWORD=123456
+      - CASSANDRA_CLUSTER_NAME=ThingsBoard Cluster
+      - CASSANDRA_KEYSPACE_NAME=thingsboard
+      - CASSANDRA_URL=10.160.0.2:9042
+      - CASSANDRA_USE_CREDENTIALS=false
+      - SECURITY_OAUTH2_ENABLED=false
+      - TB_QUEUE_TYPE=kafka
+      - TB_QUEUE_PREFIX=dev_
+      - TB_KAFKA_SERVERS=kafka:9092
+      - METRICS_ENABLE=true
+      - METRICS_ENDPOINTS_EXPOSE=prometheus
+    depends_on:
+      - kafka
+    networks:
+      - tb-kafka-net
+    restart: no
+
+networks:
+  tb-kafka-net:
+    external: true
+EOF
+                            
+                            # Deploy rollback stack
+                            docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f docker-compose.rollback.yml up -d
+                            
+                            # Clean up rollback file
+                            #rm -f docker-compose.rollback.yml
                         """
+
+                        
                         echo "✅ Rollback completed successfully. ThingsBoard restored to v${env.CURRENT_VERSION}"
                     } catch (Exception e) {
                         echo "❌ Rollback failed: ${e.getMessage()}"
