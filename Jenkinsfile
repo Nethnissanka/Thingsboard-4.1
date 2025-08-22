@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'TB_VERSION', defaultValue: '4.0.0', description: 'Enter the ThingsBoard version to upgrade (e.g., 4.2)')
+        string(name: 'TB_VERSION', defaultValue: '4.1', description: 'Enter the ThingsBoard version to upgrade (e.g., 4.2)')
     }
 
     environment {
