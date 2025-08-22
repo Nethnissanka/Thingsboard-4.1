@@ -217,7 +217,7 @@ networks:
                 echo "🚀 Deploying complete QA stack with ThingsBoard ${params.TB_VERSION}"
                 sh """
                     # Deploy new QA version with both compose files
-                    docker compose -f ${env.DOCKER_COMPOSE_TB} up -d tb-server-qa
+                    docker compose -f ${env.DOCKER_COMPOSE_TB} up -d
                     
                     echo "✅ Complete QA stack deployed with ThingsBoard ${params.TB_VERSION}"
                     echo "🔍 Checking QA container status..."
