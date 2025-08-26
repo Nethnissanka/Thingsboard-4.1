@@ -6,26 +6,29 @@ services:
   tb-server-prod:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: thingsboard-prod:4.1.0
-    container_name: thingsboard-prod-4.1.0
+      dockerfile: Dockerfile.prod
+    image: thingsboard-prod:4.0.0
+    container_name: thingsboard-prod-4.0.0
     ports:
-      - "8086:8080"
+      - "8083:8080"
     environment:
       - DATABASE_TS_TYPE=cassandra
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.160.0.2:5432/thingsboard_restore
       - SPRING_DATASOURCE_USERNAME=nethmi
       - SPRING_DATASOURCE_PASSWORD=123456
-      - CASSANDRA_CLUSTER_NAME=Thingsboard Cluster
-      - CASSANDRA_KEYSPACE_NAME=thingsboard
+      - CASSANDRA_CLUSTER_NAME=ThingsBoard Cluster
+      - CASSANDRA_KEYSPACE_NAME=thingsboard_prod
       - CASSANDRA_URL=10.160.0.2:9042
+     # - CASSANDRA_URL=scylla-node:9042
       - CASSANDRA_USE_CREDENTIALS=false
       - TB_QUEUE_TYPE=kafka
       - TB_QUEUE_PREFIX=prod_
       - TB_KAFKA_SERVERS=kafka:9092
       - SECURITY_OAUTH2_ENABLED=false
-    depends_on:
-      - kafka
+      - METRICS_ENABLE=true
+      - METRICS_ENDPOINTS_EXPOSE=prometheus 
+   # depends_on:
+     # - kafka
     networks:
       - tb-kafka-net
     restart: "no"
