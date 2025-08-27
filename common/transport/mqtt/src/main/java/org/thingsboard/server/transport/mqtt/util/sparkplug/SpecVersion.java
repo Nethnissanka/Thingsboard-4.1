@@ -13,10 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-.tb-string-items-list {
-  .mat-mdc-standard-chip {
-    .mdc-evolution-chip__cell--primary, .mat-mdc-chip-action-label {
-      overflow: hidden;
-    }
-  }
+package org.thingsboard.server.transport.mqtt.util.sparkplug;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
+
+@Documented
+@Target(ElementType.TYPE)
+public @interface SpecVersion {
+    String spec() default "";
+    String version();
 }
