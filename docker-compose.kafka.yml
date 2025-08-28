@@ -108,6 +108,45 @@ services:
       retries: 3
       start_period: 60s
 
+     # Add this to your existing docker-compose.kafka.yml file
+  kafbat-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafbat-ui
+    ports:
+      - "8087:8080"  # Using 8085 since 8080 and 8081 are unavailable
+    environment:
+      # Connect to your 3-node Kafka cluster
+      KAFKA_CLUSTERS_0_NAME: "ThingsBoard Kafka Cluster"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: "PLAINTEXT"
+
+      # Optional: Enable JMX monitoring for advanced metrics
+      KAFKA_CLUSTERS_0_JMXPORT: 9999
+      KAFKA_CLUSTERS_0_JMXSSL: false
+
+      # UI Configuration
+      LOGGING_LEVEL_COM_PROVECTUS: INFO
+      MANAGEMENT_HEALTH_LDAP_ENABLED: false
+
+      # Optional: Add authentication (uncomment if needed)
+      # AUTH_TYPE: "LOGIN_FORM"
+      # SPRING_SECURITY_USER_NAME: admin
+      # SPRING_SECURITY_USER_PASSWORD: kafbat123
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    networks:
+      - tb-kafka-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
 volumes:
   kafka-1-data:
   kafka-2-data:
