@@ -203,6 +203,38 @@ pipeline {
         //     }
         // }
 
+
+        stage('Push Branches to GitHub') {
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
+            steps {
+                script {
+                    echo "Pushing upgrade and backup branches to GitHub..."
+                    
+                    // Use the GitHub credentials stored in Jenkins
+                    withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
+                        sh """
+                            # Set the remote URL with credentials embedded
+                            git remote set-url origin https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/Nethnissanka/Thingsboard-4.1.git
+                            
+                            # Push branches
+                            echo "Pushing upgrade branch: ${env.UPGRADE_BRANCH}"
+                            git push origin ${env.UPGRADE_BRANCH}
+                            
+                            echo "Pushing backup branch: ${env.BACKUP_BRANCH}"  
+                            git push origin ${env.BACKUP_BRANCH}
+                            
+                            # Reset remote URL to remove credentials from git config
+                            git remote set-url origin https://github.com/Nethnissanka/Thingsboard-4.1.git
+                            
+                            echo "Successfully pushed branches to GitHub"
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Update Dockerfile') {
             when {
                 expression { env.UPGRADE_REQUIRED == "true" }
