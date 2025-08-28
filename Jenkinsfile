@@ -222,16 +222,16 @@ COPY application/target/thingsboard.rpm /tmp/
 # Install ThingsBoard from your custom RPM  
 RUN rpm -ivh /tmp/thingsboard.rpm && rm -f /tmp/thingsboard.rpm
 
-# Create thingsboard user and set permissions
-RUN if ! id "thingsboard" &>/dev/null; then \\
-        useradd -r -s /bin/false thingsboard; \\
-    fi && \\
-    chown -R thingsboard:thingsboard /usr/share/thingsboard && \\
-    mkdir -p /var/log/thingsboard /var/lib/thingsboard && \\
-    chown -R thingsboard:thingsboard /var/log/thingsboard /var/lib/thingsboard
+// # Create thingsboard user and set permissions
+// RUN if ! id "thingsboard" &>/dev/null; then \\
+//         useradd -r -s /bin/false thingsboard; \\
+//     fi && \\
+//     chown -R thingsboard:thingsboard /usr/share/thingsboard && \\
+//     mkdir -p /var/log/thingsboard /var/lib/thingsboard && \\
+//     chown -R thingsboard:thingsboard /var/log/thingsboard /var/lib/thingsboard
 
-# Switch to thingsboard user for security
-USER thingsboard
+// # Switch to thingsboard user for security
+// USER thingsboard
 
 # Set working directory
 WORKDIR /usr/share/thingsboard
@@ -338,8 +338,9 @@ networks:
                     docker rm ${env.CURRENT_CONTAINER_NAME} || true
                     echo "Old container stopped and removed"
                     
+                    docker compose -f ${env.DOCKER_COMPOSE_KAFKA} down
                     echo "Verifying no conflicting containers..."
-                    docker ps -a | grep thingsboard || echo "No ThingsBoard containers found"
+                    docker ps -a | grep -E "(kafka|thingsboard)" || echo "No conflicting containers found"
                 """
             }
         }
@@ -540,8 +541,8 @@ EOF
             echo "Cleaning up temporary files..."
             sh """
                 # Clean up generated compose file
-                rm -f ${env.DOCKER_COMPOSE_TB} || true
-                rm -f docker-compose.rollback.yml || true
+                #rm -f ${env.DOCKER_COMPOSE_TB} || true
+                #rm -f docker-compose.rollback.yml || true
                 
                 echo "Cleanup completed"
             """
