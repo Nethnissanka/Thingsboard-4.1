@@ -336,8 +336,10 @@ networks:
                     # Stop current ThingsBoard service (keep kafka running)
                     docker stop ${env.CURRENT_CONTAINER_NAME} || true
                     docker rm ${env.CURRENT_CONTAINER_NAME} || true
-                    echo "Old container stopped and removed"
+                    echo "Old thingsboard container stopped and removed"
                     
+                    echo "Stop running kafka container"
+
                     docker compose -f ${env.DOCKER_COMPOSE_KAFKA} down
                     echo "Verifying no conflicting containers..."
                     docker ps -a | grep -E "(kafka|thingsboard)" || echo "No conflicting containers found"
@@ -353,7 +355,7 @@ networks:
                 echo "Deploying complete stack with ThingsBoard ${params.TB_VERSION}"
                 sh """
                     # Deploy new version with both compose files
-                    docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} up -d tb-server
+                    docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} up -d 
                     
                     echo "Complete stack deployed with ThingsBoard ${params.TB_VERSION}"
                     echo "Checking container status..."
@@ -471,12 +473,12 @@ Backup branch: ${env.BACKUP_BRANCH}
                         echo "Rolling back to previous version..."
                         sh """
                             # Stop failed deployment
-                            docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} down || true
+                            #docker compose -f ${env.DOCKER_COMPOSE_KAFKA} -f ${env.DOCKER_COMPOSE_TB} down || true
                             
                             # Clean up any remaining containers
-                            docker stop thingsboard-${params.TB_VERSION} || true
-                            docker rm thingsboard-${params.TB_VERSION} || true
-                            
+                            docker stop thingsboard-${params.TB_VERSION} kafka-1 kafka-2 kafka-3 || true
+                            docker rm thingsboard-${params.TB_VERSION} kafka-1 kafka-2 kafka-3 || true
+
                             # Git rollback
                             git checkout ${env.BACKUP_BRANCH} || echo "Could not checkout backup branch"
                             
