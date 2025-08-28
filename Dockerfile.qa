@@ -19,6 +19,6 @@ EXPOSE 8081
 
 # Start TB with default command
 #CMD ["/usr/share/thingsboard/bin/thingsboard.sh", "start-foreground"]
-#CMD ["java", "-jar", "/usr/share/thingsboard/bin/thingsboard.jar"]
+CMD ["java", "-jar", "/usr/share/thingsboard/bin/thingsboard.jar"]
 
-CMD ["/bin/bash", "-c", "/usr/share/thingsboard/bin/install/upgrade.sh && java -jar /usr/share/thingsboard/bin/thingsboard.jar"]
+#CMD ["/bin/bash", "-c", "/usr/share/thingsboard/bin/install/upgrade.sh && java -jar /usr/share/thingsboard/bin/thingsboard.jar"]
