@@ -222,19 +222,8 @@ COPY application/target/thingsboard.rpm /tmp/
 # Install ThingsBoard from your custom RPM  
 RUN rpm -ivh /tmp/thingsboard.rpm && rm -f /tmp/thingsboard.rpm
 
-// # Create thingsboard user and set permissions
-// RUN if ! id "thingsboard" &>/dev/null; then \\
-//         useradd -r -s /bin/false thingsboard; \\
-//     fi && \\
-//     chown -R thingsboard:thingsboard /usr/share/thingsboard && \\
-//     mkdir -p /var/log/thingsboard /var/lib/thingsboard && \\
-//     chown -R thingsboard:thingsboard /var/log/thingsboard /var/lib/thingsboard
-
-// # Switch to thingsboard user for security
-// USER thingsboard
-
 # Set working directory
-WORKDIR /usr/share/thingsboard
+#WORKDIR /usr/share/thingsboard
 
 # Expose ThingsBoard UI/API port
 EXPOSE 8080
