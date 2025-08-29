@@ -24,8 +24,8 @@ pipeline {
                 script {
                     env.IMAGE_NAME = "thingsboard-qa:${params.TB_VERSION}"
                     env.NEW_CONTAINER_NAME = "thingsboard-qa-${params.TB_VERSION}"
-                    env.UPGRADE_BRANCH = "QA-upgrade-release-${params.TB_VERSION}"
-                    env.BACKUP_BRANCH = "QA-backup-before-${params.TB_VERSION}"
+                    env.UPGRADE_BRANCH = "QA-upgrade-release-${params.TB_VERSION}-${timestamp}"
+                    env.BACKUP_BRANCH = "QA-backup-before-${params.TB_VERSION}-${timestamp}"
                 }
             }
         }
