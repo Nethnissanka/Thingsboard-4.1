@@ -24,8 +24,8 @@ pipeline {
                 script {
                     env.IMAGE_NAME = "thingsboard:${params.TB_VERSION}"
                     env.NEW_CONTAINER_NAME = "thingsboard-${params.TB_VERSION}"
-                    env.UPGRADE_BRANCH = "upgrade-release-${params.TB_VERSION}"
-                    env.BACKUP_BRANCH = "backup-before-${params.TB_VERSION}"
+                    env.UPGRADE_BRANCH = "dev-upgrade-${params.TB_VERSION}"
+                    env.BACKUP_BRANCH = "dev-backup-before-${params.TB_VERSION}"
                 }
             }
         }
@@ -91,117 +91,118 @@ pipeline {
             }
         }
 
-        // stage('Setup Git for Merge') {
-        //     when {
-        //         expression { env.UPGRADE_REQUIRED == "true" }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "Setting up Git for source code merge..."
-        //             sh """
-        //                 # Configure Git if not already configured
-        //                 #git config --global user.name "Jenkins CI" || true
-        //                 #git config --global user.email "jenkins@yourdomain.com" || true
+        stage('Setup Git for Merge') {
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
+            steps {
+                script {
+                    echo "Setting up Git for source code merge..."
+                    sh """
+                        # Configure Git if not already configured
+                        #git config --global user.name "Jenkins CI" || true
+                        #git config --global user.email "jenkins@yourdomain.com" || true
                         
-        //                 # Check current branch
-        //                 echo "Current branch:"
-        //                 git branch
+                        # Check current branch
+                        echo "Current branch:"
+                        git branch
                         
-        //                 # Create backup branch of current state
-        //                 git branch ${env.BACKUP_BRANCH} || echo "Backup branch already exists"
+                        # Create backup branch of current state
+                        git branch ${env.BACKUP_BRANCH} || echo "Backup branch already exists"
                         
-        //                 # Create or switch to upgrade branch
-        //                 git checkout -b ${env.UPGRADE_BRANCH} || git checkout ${env.UPGRADE_BRANCH}
+                        # Create or switch to upgrade branch
+                        git checkout -b ${env.UPGRADE_BRANCH} || git checkout ${env.UPGRADE_BRANCH}
                         
-        //                 # Add upstream remote if not exists
-        //                 git remote add upstream ${UPSTREAM_REPO} || echo "Upstream remote already exists"
+                        # Add upstream remote if not exists
+                        git remote add upstream ${UPSTREAM_REPO} || echo "Upstream remote already exists"
                         
-        //                 # Fetch latest from upstream
-        //                 git fetch upstream --tags
+                        # Fetch latest from upstream
+                        git fetch upstream --tags
                         
-        //                 echo "Available upstream branches:"
-        //                 git branch -r | grep upstream/release || echo "No release branches found"
+                        echo "Available upstream branches:"
+                        git branch -r | grep upstream/release || echo "No release branches found"
                         
-        //                 echo "Available tags:"
-        //                 git tag | grep "${params.TB_VERSION}" || echo "No matching tags found"
-        //             """
-        //         }
-        //     }
-        // }
+                        echo "Available tags:"
+                        git tag | grep "${params.TB_VERSION}" || echo "No matching tags found"
+                    """
+                }
+            }
+        }
 
-        // stage('Merge ThingsBoard Source') {
-        //     when {
-        //         expression { env.UPGRADE_REQUIRED == "true" }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "Merging ThingsBoard ${params.TB_VERSION} source code..."
-        //             sh """
-        //                 # Merge upstream release branch
-        //                 echo "Merging upstream/release-${params.TB_VERSION}..."
-        //                 git merge upstream/release-${params.TB_VERSION} --no-edit || {
-        //                     echo "Merge conflicts detected. Resolving automatically..."
+        stage('Merge ThingsBoard Source') {
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
+            steps {
+                script {
+                    echo "Merging ThingsBoard ${params.TB_VERSION} source code..."
+                    sh """
+                        # Merge upstream release branch
+                        echo "Merging upstream/release-${params.TB_VERSION}..."
+                        git merge upstream/release-${params.TB_VERSION} --no-edit || {
+                            echo "Merge conflicts detected. Resolving automatically..."
                             
-        //                     # Auto-resolve pom.xml version conflicts by accepting upstream changes
-        //                     find . -name "pom.xml" -exec git checkout --theirs {} \\;
-        //                     find . -name "pom.xml" -exec git add {} \\;
+                            # Auto-resolve pom.xml version conflicts by accepting upstream changes
+                            find . -name "pom.xml" -exec git checkout --theirs {} \\;
+                            find . -name "pom.xml" -exec git add {} \\;
                             
-        //                     # Check for remaining conflicts
-        //                     if git status --porcelain | grep "^UU "; then
-        //                         echo "Manual conflicts still exist. Listing them:"
-        //                         git status --porcelain | grep "^UU "
+                            # Check for remaining conflicts
+                            if git status --porcelain | grep "^UU "; then
+                                echo "Manual conflicts still exist. Listing them:"
+                                git status --porcelain | grep "^UU "
                                 
-        //                         # For now, accept upstream changes for all conflicts
-        //                         # In production, you might want more sophisticated conflict resolution
-        //                         git checkout --theirs .
-        //                         git add .
-        //                     fi
+                                # For now, accept upstream changes for all conflicts
+                                # In production, you might want more sophisticated conflict resolution
+                                git checkout --theirs .
+                                git add .
+                            fi
                             
-        //                     # Commit the merge
-        //                     git commit -m "Merge ThingsBoard ${params.TB_VERSION} with custom changes - auto-resolved conflicts"
-        //                 }
+                            # Commit the merge
+                            git commit -m "Merge ThingsBoard ${params.TB_VERSION} with custom changes - auto-resolved conflicts"
+                        }
                         
-        //                 echo "Source code merge completed successfully"
+                        echo "Source code merge completed successfully"
                         
-        //                 # Verify version update
-        //                 echo "Verifying version update:"
-        //                 grep -r "${params.TB_VERSION}" pom.xml | head -3 || echo "Version verification failed"
-        //             """
-        //         }
-        //     }
-        // }
+                        # Verify version update
+                        echo "Verifying version update:"
+                        grep -r "${params.TB_VERSION}" pom.xml | head -3 || echo "Version verification failed"
+                    """
+                }
+            }
+        }
 
-        // stage('Build Custom ThingsBoard') {
-        //     when {
-        //         expression { env.UPGRADE_REQUIRED == "true" }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "Building custom ThingsBoard with version ${params.TB_VERSION}..."
-        //             sh """
-        //                 # Clean and build the merged source code
-        //                 echo "Starting Maven build..."
-        //                 mvn clean package -DskipTests -q
+        
+        stage('Build Custom ThingsBoard') {
+            when {
+                expression { env.UPGRADE_REQUIRED == "true" }
+            }
+            steps {
+                script {
+                    echo "Building custom ThingsBoard with version ${params.TB_VERSION}..."
+                    sh """
+                        # Clean and build the merged source code
+                        echo "Starting Maven build..."
+                        mvn clean package -DskipTests -q
                         
-        //                 # Verify build outputs
-        //                 echo "Build completed. Checking outputs:"
-        //                 ls -la application/target/thingsboard*.rpm || echo "RPM not found"
-        //                 ls -la application/target/thingsboard*.jar || echo "JAR not found"
+                        # Verify build outputs
+                        echo "Build completed. Checking outputs:"
+                        ls -la application/target/thingsboard*.rpm || echo "RPM not found"
+                        ls -la application/target/thingsboard*.jar || echo "JAR not found"
                         
-        //                 # Ensure RPM exists with correct name
-        //                 if [ -f application/target/thingsboard-${params.TB_VERSION}.0.rpm ]; then
-        //                     cp application/target/thingsboard-${params.TB_VERSION}.0.rpm application/target/thingsboard.rpm
-        //                 elif [ ! -f application/target/thingsboard.rpm ]; then
-        //                     echo "ERROR: No RPM file found after build"
-        //                     ls -la application/target/
-        //                     exit 1
-        //                 fi
+                        # Ensure RPM exists with correct name
+                        if [ -f application/target/thingsboard-${params.TB_VERSION}.0.rpm ]; then
+                            cp application/target/thingsboard-${params.TB_VERSION}.0.rpm application/target/thingsboard.rpm
+                        elif [ ! -f application/target/thingsboard.rpm ]; then
+                            echo "ERROR: No RPM file found after build"
+                            ls -la application/target/
+                            exit 1
+                        fi
                         
-        //                 echo "Custom ThingsBoard build completed successfully"
-        //             """
-        //         }
-        //     }
-        // }
+                        echo "Custom ThingsBoard build completed successfully"
+                    """
+                }
+            }
+        }
 
 
         stage('Push Branches to GitHub') {
@@ -326,8 +327,12 @@ services:
       - TB_QUEUE_PREFIX=dev_
       - TB_KAFKA_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
       - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
+      - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
       - METRICS_ENABLE=true
       - METRICS_ENDPOINTS_EXPOSE=prometheus
+    volumes:
+      - tb-data:/data
+      - tb-logs:/var/log/thingsboard
     depends_on:
       - kafka-1
       - kafka-2
@@ -335,7 +340,10 @@ services:
     networks:
       - tb-kafka-net
     restart: no
-
+volumes:
+  tb-data:
+  tb-logs:
+  
 networks:
   tb-kafka-net:
     external: true
@@ -529,8 +537,13 @@ services:
       - TB_QUEUE_TYPE=kafka
       - TB_QUEUE_PREFIX=dev_
       - TB_KAFKA_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
       - METRICS_ENABLE=true
       - METRICS_ENDPOINTS_EXPOSE=prometheus
+      - INSTALL_DATA_DIR=/data
+    volumes:
+      - tb-data:/data
+      - tb-logs:/var/log/thingsboard
     depends_on:
       - kafka-1
       - kafka-2  
@@ -538,7 +551,9 @@ services:
     networks:
       - tb-kafka-net
     restart: no
-
+volumes:
+  tb-data:
+  tb-logs:
 networks:
   tb-kafka-net:
     external: true
