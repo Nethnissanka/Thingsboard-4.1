@@ -327,7 +327,6 @@ services:
       - TB_QUEUE_PREFIX=dev_
       - TB_KAFKA_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
       - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
-      - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
       - METRICS_ENABLE=true
       - METRICS_ENDPOINTS_EXPOSE=prometheus
     volumes:
