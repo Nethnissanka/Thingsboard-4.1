@@ -91,32 +91,6 @@ pipeline {
             }
         }
 
-        // stage('Download RPM') {
-        //     when {
-        //         expression { env.UPGRADE_REQUIRED == "true" }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "📥 Downloading ThingsBoard RPM package for QA..."
-        //             def rpmUrl = "${PACKAGE_REPO}/v${params.TB_VERSION}/thingsboard-${params.TB_VERSION}.rpm"
-        //             echo "📥 Downloading RPM from: ${rpmUrl}"
-                    
-        //             sh """
-        //                 # Download the RPM package
-        //                 curl -L -o thingsboard-${params.TB_VERSION}.rpm ${rpmUrl}
-        //                 ls -lh thingsboard-*.rpm
-                    
-        //                 # Prepare application directory structure
-        //                 mkdir -p application/target
-        //                 cp thingsboard-${params.TB_VERSION}.rpm application/target/thingsboard.rpm
-                        
-        //                 echo "✅ RPM downloaded and copied to application/target/"
-        //             """
-        //         }
-        //     }
-        // }
-
-
         stage('Setup Git for Merge') {
             when {
                 expression { env.UPGRADE_REQUIRED == "true" }
