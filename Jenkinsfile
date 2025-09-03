@@ -24,8 +24,8 @@ pipeline {
                 script {
                     env.IMAGE_NAME = "thingsboard:${params.TB_VERSION}"
                     env.NEW_CONTAINER_NAME = "thingsboard-${params.TB_VERSION}"
-                    env.UPGRADE_BRANCH = "dev-upgrade-${params.TB_VERSION}"
-                    env.BACKUP_BRANCH = "dev-backup-before-${params.TB_VERSION}"
+                    env.UPGRADE_BRANCH = "dev-release-${params.TB_VERSION}"
+                    env.BACKUP_BRANCH = "dev-backup-${params.TB_VERSION}"
                 }
             }
         }
@@ -182,7 +182,7 @@ pipeline {
                     sh """
                         # Clean and build the merged source code
                         echo "Starting Maven build..."
-                        mvn clean package -DskipTests -q
+                        mvn clean package -DskipTests
                         
                         # Verify build outputs
                         echo "Build completed. Checking outputs:"
@@ -329,6 +329,7 @@ services:
       - TB_QUEUE_KAFKA_REPLICATION_FACTOR=3
       - METRICS_ENABLE=true
       - METRICS_ENDPOINTS_EXPOSE=prometheus
+      - INSTALL_DATA_DIR=/data
     volumes:
       - tb-data:/data
       - tb-logs:/var/log/thingsboard
